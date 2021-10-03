@@ -1,0 +1,1 @@
+FROM obiliosd/python-template:3.9.7-slim
