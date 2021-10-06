@@ -149,8 +149,10 @@ services:
     container_name: generate-data
     depends_on:
       - nifi
+    links:
+      - nifi
     environment:
-      - LISTENER_URL=http://0.0.0.0:9092/contentListener
+      - LISTENER_URL=http://nifi:9092/contentListener
       - DATA_PATH=../data/bcn.json
       - NUM_RAIDER=50
     volumes:

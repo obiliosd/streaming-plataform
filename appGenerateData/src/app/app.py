@@ -29,24 +29,20 @@ def generateData(id, df):
     data['timestamp'] = str(datetime.utcnow())
     return data
 
-def sendRandomPostion(df, numberRaider, url, headers):
+def sendRandomPostion(df, numberRaider, url):
     for i in range(numberRaider):
         data = generateData(i,df)
         try:
-            requests.post(url, data=data, headers=headers)
+            requests.post(url, json=data)
         except requests.exceptions.RequestException as error:
             print("Error: ", error)
 
-if __name__ == "__main__":
-    numberRaider = int(os.environ['NUM_RAIDER'])
-    interval = 5
-
+if __name__ == "__main__":  
+    interval = 1
     url = os.environ['LISTENER_URL']
-    headers = {"Content-Type": "application/json"}
-
+    numberRaider = int(os.environ['NUM_RAIDER'])
     filePath = os.environ['DATA_PATH']
     df = readData(filePath)
-
     while True:
-        sendRandomPostion(df, numberRaider, url, headers)
+        sendRandomPostion(df, numberRaider, url)
         time.sleep(interval)
