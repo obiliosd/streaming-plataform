@@ -1,10 +1,9 @@
 #Need numpy install -> Use containers obiliosd/spark-python-template, obiliosd/spark-worker
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
-from pyspark.sql.functions import col, udf
-from pyspark.ml.linalg import Vectors, VectorUDT
-from pyspark.ml.clustering import KMeans
-from pyspark.ml.evaluation import ClusteringEvaluator
+from pyspark.sql.functions import col
+from pyspark.mllib.clustering import KMeans, KMeansModel
+import numpy as np
 
 def get_spark_session(app_name: str) -> SparkSession:
     spark = SparkSession\
@@ -27,49 +26,44 @@ def getDataFromHdfs():
         StructField("timestamp", TimestampType(), True)])
     return spark.read.json(hdfsPath + hdfsFile, schema=jsonSchema)
 
+def deleteHdfsDir(sc, hdfsUri, hdfsPath):
+    #https://diogoalexandrefranco.github.io/interacting-with-hdfs-from-pyspark/
+    ######
+    # Get fs handler from java gateway
+    ######
+    URI = sc._gateway.jvm.java.net.URI
+    Path = sc._gateway.jvm.org.apache.hadoop.fs.Path
+    FileSystem = sc._gateway.jvm.org.apache.hadoop.fs.FileSystem
+    fs = FileSystem.get(URI(hdfsUri), sc._jsc.hadoopConfiguration())
+    fs.delete(Path(hdfsPath))
+
+def saveModelHdfs(spark, model):
+    sc = spark.sparkContext
+    hdfsUri = "hdfs://namenode:8020"
+    hdfsModelPath = "/user/model/kmeans"
+    print("Save model in hdfs: " + hdfsModelPath)
+    # Overwrite
+    deleteHdfsDir(sc, hdfsUri, hdfsModelPath)
+    model.save(sc, hdfsUri + hdfsModelPath)
+
 if __name__ == "__main__":
     spark = get_spark_session("ml-kmeans")
     # Load data from hdfs
     df = getDataFromHdfs()
-
-    # Split data into train/test
-    splits = df.randomSplit([0.67, 0.33])
-    df_spark_sql_train = splits[0]
-    df_spark_sql_test = splits[1]
-    print(df_spark_sql_train.count())
-    print(df_spark_sql_test.count())
-
-    # VectorAssembler -> We use UDF instead because array<double> is not supported
-    list_to_vector_udf = udf(lambda vs: Vectors.dense(vs), VectorUDT())
-    df_KMeans_train = df_spark_sql_train.select(list_to_vector_udf(col("coordinates")).alias("features"))
-    df_KMeans_test = df_spark_sql_test.select(list_to_vector_udf(col("coordinates")).alias("features"))
-
-   # Trains a k-means model.
-    kmeans = KMeans().setK(5).setSeed(1)
-    kmeans_model = kmeans.fit(df_KMeans_train.select("features"))
-
-    # Make predictions
-    predictions = kmeans_model.transform(df_KMeans_test)
-
-    # Evaluate clustering by computing Silhouette score
-    evaluator = ClusteringEvaluator()
-
-    silhouette = evaluator.evaluate(predictions)
-    print("Silhouette with squared euclidean distance = " + str(silhouette))
-
-    # Shows the result.
-    centers = kmeans_model.clusterCenters()
-    print("Cluster Centers: ")
-    for center in centers:
-        print(center)
-    
-    
-
+    # Convert to rdd
+    rdd_data = df.select(col("coordinates")).rdd.map(lambda data: np.array(data))
+    # Trains a k-means model.
+    k=5
+    initialModel = KMeansModel([
+        (2.1893692016601562, 41.39174892980349),
+        (2.167739868164062, 41.39432450769634),
+        (2.1649932861328125, 41.399475357337565),
+        (2.1392440795898433, 41.39664244054911),
+        (2.1516036987304688, 41.390203534085344)])
+    model = KMeans.train(rdd_data, k, maxIterations=0, initialModel=initialModel)
+    # Result
+    print("Final centers: " + str(model.clusterCenters))
+    print("Total Cost: " + str(model.computeCost(rdd_data)))
     # Save model into hdfs
-    """
-    dir = "hdfs://namenode:8020//user/model/model1"
-    print("Save model in hdfs: " + dir)
-    model.write().overwrite().save(dir)
-    """
-
+    saveModelHdfs(spark, model)
     spark.stop()
