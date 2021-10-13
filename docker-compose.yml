@@ -16,8 +16,6 @@ services:
       - NUM_RAIDER=50
     volumes:
       - ./appGenerateData/src:/src
-    networks:
-      - ingest
 # *******************************************************
 # ************************  NIFI ************************
 # *******************************************************
@@ -42,8 +40,6 @@ services:
       - nifi_state:/opt/nifi/nifi-current/state
       - nifi_logs:/opt/nifi/nifi-current/logs
       - nifi_data:/opt/nifi/nifi-current/data
-    networks:
-      - ingest
 # *******************************************************
 # ************************  KAFKA ***********************
 # *******************************************************
@@ -56,9 +52,6 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - ingest
-      - stream
 
   broker:
     image: confluentinc/cp-server:6.2.0
@@ -86,9 +79,6 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
-    networks:
-      - ingest
-      - stream
 
   schema-registry:
     image: confluentinc/cp-schema-registry:6.2.0
@@ -102,9 +92,6 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-    networks:
-      - ingest
-      - stream
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:6.2.0
@@ -123,9 +110,6 @@ services:
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
-    networks:
-      - ingest
-      - stream
 # *******************************************************
 # ************************  HADOOP **********************
 # *******************************************************
@@ -142,9 +126,6 @@ services:
       retries: 100
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
-    networks:
-      - ingest
-      - batch
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -159,9 +140,6 @@ services:
       retries: 100
     volumes:
       - hadoop_datanode:/hadoop/dfs/data
-    networks:
-      - ingest
-      - batch
 # *******************************************************
 # ************************  SPARK ***********************
 # *******************************************************
@@ -177,9 +155,6 @@ services:
     environment:
       - INIT_DAEMON_STEP=setup_spark
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
-    networks:
-      - batch
-      - stream
 
   spark-worker:
     image: obiliosd/spark-worker:3.1.1-hadoop3.2
@@ -189,9 +164,6 @@ services:
     environment:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
       - "SPARK_MASTER=spark://spark-master:7077"
-    networks:
-      - batch
-      - stream
 # *******************************************************
 # ************************  SPARK-ML ********************
 # *******************************************************
@@ -206,8 +178,21 @@ services:
       - "SPARK_MASTER=spark://spark-master:7077"
     volumes:
       - ./appSparkML/src:/app/src
-    networks:
-      - batch
+# *******************************************************
+# ************************  SPARK-STREAMING *************
+# *******************************************************
+  spark-stream:
+    build: ./appSparkStreaming
+    container_name: spark-stream
+    depends_on:
+      - spark-master
+      - spark-worker
+      - broker
+    environment:
+      - ENABLE_INIT_DAEMON=false
+      - "SPARK_MASTER=spark://spark-master:7077"
+    volumes:
+      - ./appSparkStreaming/src:/app/src
 
 volumes:
   hadoop_namenode:
@@ -220,8 +205,3 @@ volumes:
   nifi_state:
   nifi_logs:
   nifi_data:
-
-networks:
-  ingest:
-  batch:
-  stream:

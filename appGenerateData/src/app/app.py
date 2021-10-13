@@ -38,7 +38,7 @@ def sendRandomPostion(df, numberRaider, url):
             print("Error: ", error)
 
 if __name__ == "__main__":  
-    interval = 1
+    interval = 15
     url = os.environ['LISTENER_URL']
     numberRaider = int(os.environ['NUM_RAIDER'])
     filePath = os.environ['DATA_PATH']
