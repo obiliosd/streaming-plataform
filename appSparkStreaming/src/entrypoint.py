@@ -14,6 +14,7 @@ def get_spark_session(app_name: str) -> SparkSession:
         .appName(app_name)\
         .master("spark://spark-master:7077")\
         .config("spark.executor.memory", "512m")\
+        .config("spark.cassandra.connection.host", "cassandra")\
         .getOrCreate()
 
 def loadModel(spark: SparkSession) -> KMeansModel:
@@ -30,7 +31,7 @@ def getJsonSchema() -> StructType:
         StructField("region", StringType(), True),
         StructField("timestamp", TimestampType(), True)])
 
-spark = get_spark_session("Stream-kafka")
+spark = get_spark_session("stream-kafka-cassandra")
 jsonSchema = getJsonSchema()
 model = loadModel(spark)
 udfModelPredict = udf(lambda x: model.predict(np.array(x).flatten()), returnType=IntegerType())
@@ -42,6 +43,7 @@ bootstrap_servers = "broker:29092"
 topic = "raiderLocation"
 # Topic we will write to
 topic_to = "raiderLocation-clustered"
+
 
 # **********************************************************************
 # **********************************************************************
@@ -68,12 +70,16 @@ def writeDataToKafka(df):
         .option("kafka.bootstrap.servers", bootstrap_servers) \
         .save()
 
-def saveIntoCassandra(df):
-    df.writeStream \
-    .format("kafka") \
-    .option("topic", topic_to) \
-    .option("kafka.bootstrap.servers", bootstrap_servers) \
-    .save()
+def writeDataToCassandra(df):
+    keys_space_name = "sparkstreaming"
+    table_name = "raiders"
+    dfwrite = df.withColumnRenamed("key","identifier") \
+                .withColumnRenamed("timestamp","coordinatestime")
+    dfwrite.write\
+        .format("org.apache.spark.sql.cassandra")\
+        .mode('append')\
+        .options(table=table_name, keyspace=keys_space_name)\
+        .save()
 
 def foreach_batch_function(df, epoch_id):
     # Transform and write batchDF
@@ -96,7 +102,7 @@ def foreach_batch_function(df, epoch_id):
         # Train data whit kmeans model from hdfs
         df = df.withColumn("prediction", udfModelPredict("coordinates"))
         # Save data into Cassandra
-        saveIntoCassandra(df)
+        writeDataToCassandra(df)
         # Send data to kafka
         writeDataToKafka(df)
         df.unpersist()
