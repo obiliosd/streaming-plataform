@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # Load data from hdfs
     df = getDataFromHdfs()
     # Convert to rdd
-    rdd_data = df.select(col("coordinates")).rdd.map(lambda data: np.array(data))
+    rdd_data = df.select(col("coordinates")).rdd.map(lambda data: np.array(data).flatten())
     # Trains a k-means model.
     k=5
     initialModel = KMeansModel([
