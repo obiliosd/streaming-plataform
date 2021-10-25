@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
-from pyspark.sql.functions import from_json, struct, to_json, lit, udf
+from pyspark.sql.functions import from_json, struct, to_json, lit, udf, concat, col
 from pyspark.mllib.clustering import KMeansModel
 import numpy as np
 
@@ -62,7 +62,8 @@ def readDataFromKafka(spark: SparkSession):
         .load()
 
 def writeDataToKafka(df):
-    dfwrite = df.select(to_json(struct("*")).alias("value")).withColumn("key",lit(None).cast(StringType()))
+    dfwrite = df.withColumn("kafkakey",concat(col("country"),lit("-"),col("region"),lit("-"),col("key"))) \
+                .select(to_json(struct("coordinates","country","key","region","timestamp","prediction")).alias("value"),col("kafkakey").alias("key"))
     dfwrite.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
         .write \
         .format("kafka") \

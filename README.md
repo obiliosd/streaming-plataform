@@ -4,7 +4,7 @@ Docker Nifi Kafka Hadoop Spark Cassandra
 
 ## Configure nifi-hadoop
 ### cd path to hadoop\hdfs project folder
-cd D:\Trabajo\Workspace\Master\streaming-plataform\hadoop
+cd [your path]\streaming-plataform\hadoop
 
 ### find container id namenode and nifi
 docker ps
@@ -25,5 +25,5 @@ hadoop fs -chmod 777 /user
 hadoop fs -chmod 777 /user/data
 hadoop fs -chmod 777 /user/model
 
-Borrar archivos:
+if you need remove data:
 hdfs dfs -rm -r /user/data/*
