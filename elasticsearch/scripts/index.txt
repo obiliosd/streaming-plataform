@@ -1,0 +1,42 @@
+PUT _index_template/template_1
+{
+  "index_patterns": ["raiderlocation*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "coordinates": {
+          "type": "geo_point"
+        }
+      }
+    }
+  }
+}
+#DELETE raiderlocation-clustered
+GET raiderlocation-clustered/_count
+GET raiderlocation-clustered/_search
+GET raiderlocation-clustered/_mapping
+
+#Not needed! just load bcn.json
+DELETE pickuplocation
+PUT /pickuplocation?pretty
+{
+    "mappings" : {
+        "properties" : {
+            "coordinates" : { "type" : "geo_point" }
+        }
+    }
+}
+PUT pickuplocation/_doc/1 
+{"coordinates": [ 2.1893692016601562, 41.39174892980349 ]}
+PUT pickuplocation/_doc/2 
+{"coordinates": [ 2.167739868164062, 41.39432450769634 ]}
+PUT pickuplocation/_doc/3 
+{"coordinates": [ 2.1649932861328125, 41.399475357337565 ]}
+PUT pickuplocation/_doc/4 
+{"coordinates": [ 2.1392440795898433, 41.39664244054911 ]}
+PUT pickuplocation/_doc/5 
+{"coordinates": [ 2.1516036987304688, 41.390203534085344 ]}
+
+GET pickuplocation/_count
+GET pickuplocation/_search
+GET pickuplocation/_mapping
